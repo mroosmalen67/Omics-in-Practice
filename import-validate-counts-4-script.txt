@@ -1,0 +1,32 @@
+counts_df <- fread("data/gene_counts.tsv", header = TRUE, data.table = FALSE, check.names = FALSE)
+metadata  <- fread("metadata/sample_metadata.tsv", data.table = FALSE)
+metadata$sample <- as.character(metadata$sample)
+
+gene_ids <- counts_df[[1]]
+counts <- as.matrix(counts_df[, -1, drop = FALSE])
+rownames(counts) <- gene_ids
+mode(counts) <- "numeric"
+
+#Perform explicit checks before continuing:
+stopifnot(!anyDuplicated(rownames(counts)))
+stopifnot(!anyDuplicated(metadata$sample))
+stopifnot(all(counts >= 0))
+stopifnot(all(counts == round(counts)))
+stopifnot(setequal(colnames(counts), metadata$sample))
+metadata <- metadata[match(colnames(counts), metadata$sample), ]
+stopifnot(identical(colnames(counts), metadata$sample))
+rownames(metadata) <- metadata$sample
+
+# Initial summaries
+dim(counts)
+summary(colSums(counts))
+table(metadata$condition)
+head(metadata)
+
+#Library sizes can also be plotted before normalization:
+lib_df <- data.frame(sample = colnames(counts),
+library_size = colSums(counts),
+condition = metadata$condition)
+p_lib <- ggplot(lib_df, aes(sample, library_size, fill = condition)) + geom_col() + scale_y_continuous(labels = scales::comma) + labs(x = NULL, y = "Total raw counts", title = "Library sizes") + theme_bw() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave("figures/library_sizes.pdf", p_lib, width = 8, height = 5)
